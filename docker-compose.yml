@@ -1,0 +1,30 @@
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: chatcrm
+      POSTGRES_PASSWORD: chatcrm_password
+      POSTGRES_DB: chatcrm
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: postgresql://chatcrm:chatcrm_password@postgres:5432/chatcrm
+      JWT_SECRET: change-this-in-production-use-a-long-random-string
+      NODE_ENV: production
+      PORT: 5000
+    depends_on:
+      - postgres
+    command: sh -c "npx prisma migrate deploy && node src/app.js"
+
+volumes:
+  postgres_data:

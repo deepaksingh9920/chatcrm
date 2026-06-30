@@ -1,0 +1,254 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  address   String?
+  gstin     String?
+  logo      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+  customers Customer[]
+}
+
+model User {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  email     String
+  password  String
+  role      UserRole @default(STAFF)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company   Company  @relation(fields: [companyId], references: [id])
+  messages  Message[]
+  tasks     Task[]
+  notes     Note[]
+
+  @@unique([companyId, email])
+}
+
+model Customer {
+  id           String         @id @default(cuid())
+  companyId    String
+  name         String
+  email        String?
+  phone        String?
+  companyName  String?
+  gstin        String?
+  address      String?
+  city         String?
+  state        String?
+  pincode      String?
+  tags         String[]
+  status       CustomerStatus @default(ACTIVE)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  company      Company        @relation(fields: [companyId], references: [id])
+  messages     Message[]
+  quotes       Quote[]
+  orders       Order[]
+  invoices     Invoice[]
+  tasks        Task[]
+  notes        Note[]
+  files        File[]
+  timelines    Timeline[]
+
+  @@unique([companyId, phone])
+}
+
+model Message {
+  id         String      @id @default(cuid())
+  customerId String
+  userId     String?
+  direction  MsgDirection
+  content    String
+  createdAt  DateTime    @default(now())
+
+  customer   Customer    @relation(fields: [customerId], references: [id])
+  user       User?       @relation(fields: [userId], references: [id])
+}
+
+model Quote {
+  id          String      @id @default(cuid())
+  customerId  String
+  quoteNumber String
+  status      QuoteStatus @default(DRAFT)
+  items       Json
+  subtotal    Decimal     @db.Decimal(12, 2)
+  taxAmount   Decimal     @db.Decimal(12, 2)
+  total       Decimal     @db.Decimal(12, 2)
+  notes       String?
+  validTill   DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  customer    Customer    @relation(fields: [customerId], references: [id])
+  order       Order?
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  customerId  String
+  quoteId     String?     @unique
+  orderNumber String
+  status      OrderStatus @default(PENDING)
+  items       Json
+  subtotal    Decimal     @db.Decimal(12, 2)
+  taxAmount   Decimal     @db.Decimal(12, 2)
+  total       Decimal     @db.Decimal(12, 2)
+  notes       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  customer    Customer    @relation(fields: [customerId], references: [id])
+  quote       Quote?      @relation(fields: [quoteId], references: [id])
+  invoices    Invoice[]
+}
+
+model Invoice {
+  id            String        @id @default(cuid())
+  customerId    String
+  orderId       String?
+  invoiceNumber String
+  status        InvoiceStatus @default(DRAFT)
+  items         Json
+  subtotal      Decimal       @db.Decimal(12, 2)
+  taxAmount     Decimal       @db.Decimal(12, 2)
+  total         Decimal       @db.Decimal(12, 2)
+  paidAmount    Decimal       @db.Decimal(12, 2) @default(0)
+  dueDate       DateTime?
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  customer      Customer      @relation(fields: [customerId], references: [id])
+  order         Order?        @relation(fields: [orderId], references: [id])
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  customerId  String
+  userId      String
+  title       String
+  description String?
+  dueDate     DateTime?
+  status      TaskStatus @default(PENDING)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  customer    Customer   @relation(fields: [customerId], references: [id])
+  user        User       @relation(fields: [userId], references: [id])
+}
+
+model Note {
+  id         String   @id @default(cuid())
+  customerId String
+  userId     String
+  content    String
+  createdAt  DateTime @default(now())
+
+  customer   Customer @relation(fields: [customerId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
+}
+
+model File {
+  id         String   @id @default(cuid())
+  customerId String
+  name       String
+  url        String
+  size       Int
+  mimeType   String
+  createdAt  DateTime @default(now())
+
+  customer   Customer @relation(fields: [customerId], references: [id])
+}
+
+model Timeline {
+  id         String        @id @default(cuid())
+  customerId String
+  type       TimelineType
+  title      String
+  meta       Json?
+  createdAt  DateTime      @default(now())
+
+  customer   Customer      @relation(fields: [customerId], references: [id])
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  STAFF
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum MsgDirection {
+  IN
+  OUT
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  VIEWED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  PACKED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  PARTIAL
+  OVERDUE
+}
+
+enum TaskStatus {
+  PENDING
+  COMPLETED
+}
+
+enum TimelineType {
+  CUSTOMER_CREATED
+  MESSAGE_SENT
+  MESSAGE_RECEIVED
+  QUOTE_CREATED
+  QUOTE_SENT
+  ORDER_CREATED
+  ORDER_STATUS_CHANGED
+  INVOICE_CREATED
+  INVOICE_PAID
+  TASK_CREATED
+  TASK_COMPLETED
+  NOTE_ADDED
+  FILE_UPLOADED
+}
